@@ -1,0 +1,7 @@
+{
+    "_comment": "资源受限场景建议配置",
+    "core_threads": 2,
+    "max_threads": 4,
+    "max_queue_size": 100,
+    "queue_full_policy": "OVERWRITE"
+}

@@ -1,0 +1,11 @@
+{
+    "_comment": "低延迟场景建议配置",
+    "core_threads": 16,
+    "max_threads": 32,
+    "max_queue_size": 1000,
+    "queue_full_policy": "DISCARD",
+
+    "load_check_interval": 100,
+    "expand_factor": 0.5,
+    "enable_dynamic_thread": true
+}

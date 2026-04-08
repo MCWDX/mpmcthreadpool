@@ -1,0 +1,8 @@
+{
+    "core_threads": 8,
+    "max_threads": 8,
+    "max_queue_size": 10000,
+    "queue_full_policy": "BLOCKING",
+
+    "enable_dynamic_thread": false
+}
