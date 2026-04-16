@@ -29,7 +29,7 @@ target_link_libraries(circular_queue_test PRIVATE
 add_executable(thread_pool_config_test 
     ./unit/thread_pool_config_test.cpp
     ./../src/thread_pool_config.cpp
-    ./../src/thread_pool_improved.cpp
+    ./../src/thread_pool.cpp
     ./../src/logger.cpp
 )
 target_link_libraries(thread_pool_config_test PRIVATE
@@ -42,7 +42,7 @@ target_link_libraries(thread_pool_config_test PRIVATE
 add_executable(thread_pool_test 
     ./unit/thread_pool_test.cpp
     ./../src/thread_pool_config.cpp
-    ./../src/thread_pool_improved.cpp
+    ./../src/thread_pool.cpp
     ./../src/logger.cpp
 )
 target_link_libraries(thread_pool_test PRIVATE

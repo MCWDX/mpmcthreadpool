@@ -1,4 +1,4 @@
-#include "thread_pool_improved.h"
+#include "thread_pool.h"
 #include "logger.h"
 
 #include <iostream>

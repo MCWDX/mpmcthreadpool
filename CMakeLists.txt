@@ -17,7 +17,7 @@ if (NOT BUILD_TESTS)
     add_library(thread_pool_lib
         ./test/unit/thread_pool_config_test.cpp
         ./src/thread_pool_config.cpp
-        ./src/thread_pool_improved.cpp
+        ./src/thread_pool.cpp
     )
 
     target_link_libraries(thread_pool_lib
