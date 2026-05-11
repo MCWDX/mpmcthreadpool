@@ -1,0 +1,62 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(MPMCThreadPoolTest LANGUAGES CXX)
+
+# ---- 便于 gdb 调试的默认设置 ----
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wall>)
+add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wextra>)
+add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-fno-omit-frame-pointer>)
+add_compile_options($<$<AND:$<CONFIG:Debug>,$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>>:-O0>)
+add_compile_options($<$<AND:$<CONFIG:Debug>,$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>>:-ggdb3>)
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -g -fno-omit-frame-pointer")
+
+find_package(GTest CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+
+include_directories(${PROJECT_SOURCE_DIR}/../include)
+
+add_library(lib INTERFACE)
+target_include_directories(lib INTERFACE
+    ${PROJECT_SOURCE_DIR}/../include
+)
+
+add_executable(circular_queue_test ./unit/circular_queue_test.cpp)
+target_link_libraries(circular_queue_test PRIVATE
+    lib
+    GTest::gtest_main
+)
+
+add_executable(thread_pool_config_test
+    ./unit/thread_pool_config_test.cpp
+    ./../src/thread_pool_config.cpp
+    ./../src/thread_pool.cpp
+    ./../src/logger.cpp
+)
+target_link_libraries(thread_pool_config_test PRIVATE
+    lib
+    GTest::gtest_main
+    spdlog::spdlog
+    fmt::fmt
+)
+
+add_executable(thread_pool_test
+    ./unit/thread_pool_test.cpp
+    ./../src/thread_pool_config.cpp
+    ./../src/thread_pool.cpp
+    ./../src/logger.cpp
+)
+target_link_libraries(thread_pool_test PRIVATE
+    lib
+    GTest::gtest_main
+    spdlog::spdlog
+    fmt::fmt
+)

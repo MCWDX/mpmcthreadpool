@@ -1,0 +1,53 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(MPMCThreadPoolTest LANGUAGES CXX)
+
+# ---- 便于 gdb 调试的默认设置 ----
+# 如果用户未显式指定构建类型（单配置生成器，如 Make/Ninja），
+# 则默认使用 Debug，便于查看局部变量/栈回溯。
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 保留编译告警，但避免全局强制 -O2（会显著影响 gdb 的可读性）。
+# 注意：generator expression 里不能直接用分号分隔多个选项，否则会把末尾的 '>' 拆进参数里。
+add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wall>)
+add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wextra>)
+
+# 建议保留帧指针，便于 gdb 生成更完整的回溯信息。
+add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-fno-omit-frame-pointer>)
+
+# Debug 构建：关闭优化并生成更完整的调试信息。
+add_compile_options($<$<AND:$<CONFIG:Debug>,$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>>:-O0>)
+add_compile_options($<$<AND:$<CONFIG:Debug>,$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>>:-ggdb3>)
+
+# RelWithDebInfo：确保仍带符号和帧指针（同时保留一定优化）。
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -g -fno-omit-frame-pointer")
+
+option(BUILD_TESTS "Build tests" OFF)
+
+if (NOT BUILD_TESTS)
+    find_package(nlohmann_json CONFIG REQUIRED)
+    find_package(spdlog CONFIG REQUIRED)
+    find_package(fmt CONFIG REQUIRED)
+
+    add_library(thread_pool_lib
+        ./test/unit/thread_pool_config_test.cpp
+        ./src/thread_pool_config.cpp
+        ./src/thread_pool.cpp
+    )
+
+    target_link_libraries(thread_pool_lib
+        nlohmann_json::nlohmann_json
+        spdlog::spdlog
+        fmt::fmt
+    )
+
+    target_include_directories(thread_pool_lib PUBLIC ./include)
+else()
+    # test文件夹中的 CMakeLists 自行寻找依赖
+    add_subdirectory(test)
+endif()

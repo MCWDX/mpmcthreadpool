@@ -175,7 +175,7 @@ void ThreadPool::waitForAllTask() {
     unique_lock<mutex> queue_lock(queue_mutex_);
     wait_cv_.wait(queue_lock, [this]() {
         // 或者也可以active_threads_.load() == 0 && task_queue_.size() == 0;
-        return running_tasks_.load() == 0 && pending_tasks_.load() == 0;
+        return running_tasks_.load() == 0 && task_queue_.size() == 0;
     });
 }
 
@@ -350,52 +350,51 @@ void ThreadPool::workerLoop(std::size_t thread_index) {
     while (true) {
         bool have_task = false;
         std::unique_ptr<TaskBase> task;
-
-        // 线程应该退出标志位为true时退出线程
-        if (thread_should_exit_[thread_index]->load()) {
-            return;
-        }
-        if (state_.load() == State::PAUSED) {
-            while (state_.load() == State::PAUSED && !stopped_.load()) {
-                std::this_thread::sleep_for(milliseconds(10));           
-            }
-            if (stopped_.load()) {
+        {
+            unique_lock<mutex> queue_lock(queue_mutex_);
+            // 线程应该退出标志位为true时退出线程
+            if (thread_should_exit_[thread_index]->load()) {
                 return;
             }
-        }
+            
+            if (state_.load() == State::PAUSED) {
+                queue_lock.unlock();
 
-        // 先因检查任务队列状态获取锁
-        unique_lock<mutex> queue_lock(queue_mutex_);
+                while (state_.load() == State::PAUSED && !stopped_.load()) {
+                    std::this_thread::sleep_for(milliseconds(10));           
+                }
+                if (stopped_.load()) {
+                    return;
+                }
+                queue_lock.lock();
+            }
+            // 先因检查任务队列状态获取锁
+            queue_cv_.wait(queue_lock, [this, thread_index]() { 
+                return stopped_.load() || task_queue_.size() > 0 || (thread_should_exit_[thread_index]->load());
+            });
 
-        queue_cv_.wait(queue_lock, [this, thread_index]() { 
-            return stopped_.load() || task_queue_.size() > 0 || (thread_should_exit_[thread_index]->load());
-        });
+            // 如果没有任务，或者强制关停时，线程return
+            if (stopped_ || state_.load() == State::FORCE_SHUTING) {
+                if (task_queue_.size() == 0 || state_.load() == State::FORCE_SHUTING) {
+                    return;
+                }
+            }
+            // 有任务则取出并准备执行
+            if (task_queue_.size() > 0) {
+                task_queue_.dequeue(task);
+                have_task = true;
+                active_threads_++;
 
-        // 如果没有任务，或者强制关停时，线程return
-        if (stopped_ || state_.load() == State::FORCE_SHUTING) {
-            if (task_queue_.size() == 0 || state_.load() == State::FORCE_SHUTING) {
-                return;
+                if (thread_index != SIZE_MAX) {
+                    // 更新线程最后活动时间与线程空闲次数
+                    thread_last_active_[thread_index] = chrono::steady_clock::now();
+                    thread_idle_count_[thread_index]->store(0);
+                }
             }
         }
-
-        // 有任务则取出并准备执行
-        if (task_queue_.size() > 0) {
-            task_queue_.dequeue(task);
-            have_task = true;
-            active_threads_++;
-
-            if (thread_index != SIZE_MAX) {
-                // 更新线程最后活动时间与线程空闲次数
-                thread_last_active_[thread_index] = chrono::steady_clock::now();
-                thread_idle_count_[thread_index]->store(0);
-            }
-        }
-
+        
         if (have_task) {
             running_tasks_++;
-
-            // 执行任务期间释放锁，供其他线程获取
-            queue_lock.unlock();
             try {
                 auto start = chrono::steady_clock::now();
                 task->execute();
@@ -419,7 +418,7 @@ void ThreadPool::workerLoop(std::size_t thread_index) {
             }
 
             // 任务结束后重新获取锁，持锁状态下更新线程池数据，保证notify不会丢失
-            queue_lock.lock();
+            unique_lock<mutex> queue_lock(queue_mutex_);
             pending_tasks_--;
             running_tasks_--;
             active_threads_--;
