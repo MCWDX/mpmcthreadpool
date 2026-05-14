@@ -159,8 +159,8 @@ bool ThreadPool::submit(std::unique_ptr<TaskBase> task) {
     
     if (submit_res) {
         // 提交任务之后要提醒worker线程来干活了
-        unique_lock<mutex> queue_lock(queue_mutex_);
         pending_tasks_++;
+        unique_lock<mutex> queue_lock(queue_mutex_);
         queue_cv_.notify_one();
     }
     return submit_res;
@@ -175,7 +175,7 @@ void ThreadPool::waitForAllTask() {
     unique_lock<mutex> queue_lock(queue_mutex_);
     wait_cv_.wait(queue_lock, [this]() {
         // 或者也可以active_threads_.load() == 0 && task_queue_.size() == 0;
-        return running_tasks_.load() == 0 && task_queue_.size() == 0;
+        return pending_tasks_.load() == 0 && running_tasks_.load() == 0;
     });
 }
 
@@ -608,9 +608,12 @@ void ThreadPool::forceStop() {
             std::unique_ptr<TaskBase> task;
             task_queue_.dequeue(task);
             task->abandon();
+            pending_tasks_--;
             unique_lock<mutex> status_lock(status_mutex_);
             status_.tasks_failed++;
         }
+        queue_cv_.notify_all();
+        wait_cv_.notify_all();
     }
     stop();
 }

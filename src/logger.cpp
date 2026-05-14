@@ -242,5 +242,4 @@ bool Logger::createLogDirectory(const string& file_path) {
     }
 }
 
-}
-
+} // namespace threadpool
